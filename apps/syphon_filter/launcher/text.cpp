@@ -64,6 +64,8 @@ constexpr LauncherText english_text{
             .direct_input_protocol = L"DirectInput",
             .raw_input_protocol = L"Raw Input",
             .vibration = L"Controller vibration",
+            .aim_mouse_sensitivity = L"Aim mouse sensitivity",
+            .aim_sensitivity_updated = L"Aim sensitivity updated.",
             .assignments = L"CONTROL ASSIGNMENTS",
             .binding_controls = L"BINDING CONTROL",
             .change_prefix = L"Change: ",
@@ -254,6 +256,10 @@ constexpr LauncherText russian_text{
             .direct_input_protocol = L"DirectInput",
             .raw_input_protocol = L"Raw Input",
             .vibration = L"Вибрация",
+            .aim_mouse_sensitivity =
+                L"Чувствительность мыши при прицеливании",
+            .aim_sensitivity_updated =
+                L"Чувствительность прицеливания изменена.",
             .assignments = L"НАЗНАЧЕНИЯ",
             .binding_controls = L"НАСТРОЙКА",
             .change_prefix = L"Изменить: ",

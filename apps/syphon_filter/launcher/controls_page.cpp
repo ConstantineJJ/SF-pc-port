@@ -259,6 +259,8 @@ struct ControlsPage::Impl {
   HWND protocol_label{};
   HWND protocol_combo{};
   HWND vibration_checkbox{};
+  HWND aim_sensitivity_label{};
+  HWND aim_sensitivity_combo{};
   HWND assignments_label{};
   HWND list{};
   HWND binding_label{};
@@ -373,6 +375,58 @@ struct ControlsPage::Impl {
     InvalidateRect(parent, nullptr, FALSE);
   }
 
+  void refreshAimSensitivityCombo() {
+    if (keyboard == nullptr || aim_sensitivity_combo == nullptr) {
+      return;
+    }
+    const auto current = std::clamp(
+        static_cast<int>(keyboard->aim_mouse_sensitivity * 100.0 + 0.5),
+        10, 200);
+    SendMessageW(aim_sensitivity_combo, CB_RESETCONTENT, 0, 0);
+    auto selected_row = 0;
+    auto row = 0;
+    for (auto percent = 10; percent <= 200; ++percent) {
+      if (percent % 5 != 0 && percent != current) {
+        continue;
+      }
+      const auto label = std::to_wstring(percent) + L"%";
+      const auto item = SendMessageW(
+          aim_sensitivity_combo, CB_ADDSTRING, 0,
+          reinterpret_cast<LPARAM>(label.c_str()));
+      if (item >= 0) {
+        SendMessageW(aim_sensitivity_combo, CB_SETITEMDATA,
+                     static_cast<WPARAM>(item),
+                     static_cast<LPARAM>(percent));
+      }
+      if (percent == current) {
+        selected_row = row;
+      }
+      ++row;
+    }
+    SendMessageW(aim_sensitivity_combo, CB_SETCURSEL,
+                 static_cast<WPARAM>(selected_row), 0);
+  }
+
+  void applyAimSensitivitySelection() {
+    if (keyboard == nullptr || aim_sensitivity_combo == nullptr) {
+      return;
+    }
+    const auto selection =
+        SendMessageW(aim_sensitivity_combo, CB_GETCURSEL, 0, 0);
+    if (selection < 0) {
+      return;
+    }
+    const auto percent = SendMessageW(
+        aim_sensitivity_combo, CB_GETITEMDATA,
+        static_cast<WPARAM>(selection), 0);
+    if (percent < 10 || percent > 200) {
+      return;
+    }
+    keyboard->aim_mouse_sensitivity =
+        static_cast<double>(percent) / 100.0;
+    setStatus(localizedText().aim_sensitivity_updated);
+  }
+
   void cancelBindingCapture() {
     capture.reset();
     controller_capture.cancelCapture();
@@ -440,6 +494,9 @@ struct ControlsPage::Impl {
     selected = 0U;
     capture.reset();
     controller_capture.cancelCapture();
+    if (aim_sensitivity_combo != nullptr) {
+      EnableWindow(aim_sensitivity_combo, controller_mode ? FALSE : TRUE);
+    }
     if (controller_mode && visible && validModel()) {
       static_cast<void>(controller_capture.initialize(*protocol));
       static_cast<void>(controller_capture.update());
@@ -500,6 +557,9 @@ struct ControlsPage::Impl {
     SetWindowTextW(input_device_label, text.input_device.data());
     SetWindowTextW(protocol_label, text.controller_backend.data());
     SetWindowTextW(vibration_checkbox, text.vibration.data());
+    SetWindowTextW(aim_sensitivity_label,
+                   text.aim_mouse_sensitivity.data());
+    refreshAimSensitivityCombo();
     SetWindowTextW(assignments_label, text.assignments.data());
     SetWindowTextW(binding_label, text.binding_controls.data());
     SetWindowTextW(clear_button, text.clear.data());
@@ -579,6 +639,12 @@ bool ControlsPage::create(HWND parent, const RECT &bounds,
   impl_->vibration_checkbox =
       add(createControl(parent, L"BUTTON", L"", WS_TABSTOP | BS_AUTOCHECKBOX,
                         controller_vibration_control_id, style.ui_font));
+  impl_->aim_sensitivity_label =
+      add(createControl(parent, L"STATIC", L"", 0, 0, style.ui_font));
+  impl_->aim_sensitivity_combo =
+      add(createControl(parent, L"COMBOBOX", L"",
+                        WS_TABSTOP | CBS_DROPDOWNLIST,
+                        aim_mouse_sensitivity_control_id, style.ui_font));
   impl_->assignments_label =
       add(createControl(parent, L"STATIC", L"", 0, 0, style.heading_font));
   impl_->list = add(createControl(parent, L"LISTBOX", L"",
@@ -601,7 +667,7 @@ bool ControlsPage::create(HWND parent, const RECT &bounds,
   impl_->hint =
       add(createControl(parent, L"STATIC", L"", SS_LEFT, 0, style.ui_font));
 
-  if (impl_->controls.size() != 14U) {
+  if (impl_->controls.size() != 16U) {
     shutdown();
     return false;
   }
@@ -678,10 +744,14 @@ void ControlsPage::layout(const RECT &bounds) noexcept {
              TRUE);
   MoveWindow(impl_->defaults_button, action_left, body_top + 104, action_width,
              38, TRUE);
-  MoveWindow(impl_->status, action_left, body_top + 158, action_width, 74,
+  MoveWindow(impl_->aim_sensitivity_label, action_left, body_top + 154,
+             action_width, 22, TRUE);
+  MoveWindow(impl_->aim_sensitivity_combo, action_left, body_top + 178,
+             action_width, 180, TRUE);
+  MoveWindow(impl_->status, action_left, body_top + 218, action_width, 66,
              TRUE);
-  MoveWindow(impl_->hint, action_left, body_top + 244, action_width,
-             std::max(42, body_height - 244), TRUE);
+  MoveWindow(impl_->hint, action_left, body_top + 296, action_width,
+             std::max(42, body_height - 296), TRUE);
 }
 
 void ControlsPage::setRussian(bool russian) {
@@ -713,6 +783,11 @@ bool ControlsPage::handleCommand(WPARAM w_param, LPARAM) {
   }
   if (id == controller_protocol_control_id && notification == CBN_SELCHANGE) {
     impl_->applyProtocolSelection();
+    return true;
+  }
+  if (id == aim_mouse_sensitivity_control_id &&
+      notification == CBN_SELCHANGE) {
+    impl_->applyAimSensitivitySelection();
     return true;
   }
   if (id == binding_list_control_id &&
@@ -768,6 +843,7 @@ bool ControlsPage::handleCommand(WPARAM w_param, LPARAM) {
       *impl_->controller = ControllerButtonBindings{};
     } else {
       *impl_->keyboard = defaultKeyboardMouseBindings();
+      impl_->refreshAimSensitivityCombo();
     }
     impl_->capture.reset();
     impl_->controller_capture.cancelCapture();

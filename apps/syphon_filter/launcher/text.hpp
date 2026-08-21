@@ -69,6 +69,8 @@ struct ControlsPageText {
   std::wstring_view direct_input_protocol;
   std::wstring_view raw_input_protocol;
   std::wstring_view vibration;
+  std::wstring_view aim_mouse_sensitivity;
+  std::wstring_view aim_sensitivity_updated;
   std::wstring_view assignments;
   std::wstring_view binding_controls;
   std::wstring_view change_prefix;

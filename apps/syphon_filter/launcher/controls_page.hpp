@@ -37,6 +37,7 @@ public:
   static constexpr int clear_binding_control_id = 2003;
   static constexpr int default_bindings_control_id = 2004;
   static constexpr int input_device_control_id = 2006;
+  static constexpr int aim_mouse_sensitivity_control_id = 2007;
   static constexpr int controller_protocol_control_id = 1021;
   static constexpr int controller_vibration_control_id = 1022;
   static constexpr UINT_PTR capture_timer_id = 0x5346U;
