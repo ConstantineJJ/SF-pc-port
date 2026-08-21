@@ -1,0 +1,51 @@
+name: Diagnostic C4 force presentation
+
+on:
+  push:
+    branches:
+      - diagnostic/c4-force-presentation
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout combined diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Force Georgia Street objective bomb presentation
+        shell: pwsh
+        run: |
+          $path = 'src/game/gameplay.cpp'
+          $text = Get-Content -Raw $path
+          $pattern = '(?m)^    const auto presented = resident_presentation && stream_visible &&\r?\n                           \(!retail_dormant \|\| static_presentation_allowed\);'
+          $replacement = @(
+            '    const auto diagnostic_objective_bomb = legacyGeorgiaStreetObjectiveBomb('
+            '        mission_.definition().index, objects_[scene].source_index,'
+            '        guest.class_id);'
+            '    const auto presented ='
+            '        diagnostic_objective_bomb ||'
+            '        (resident_presentation && stream_visible &&'
+            '         (!retail_dormant || static_presentation_allowed));'
+          ) -join "`n"
+          $patched = [regex]::Replace($text, $pattern, $replacement, 1)
+          if ($patched -eq $text) {
+            throw 'Diagnostic presentation patch did not match gameplay.cpp'
+          }
+          [System.IO.File]::WriteAllText($path, $patched, [System.Text.UTF8Encoding]::new($false))
+          git diff -- src/game/gameplay.cpp
+
+      - name: Configure PsyCross
+        run: cmake --preset windows-psycross
+
+      - name: Build release app
+        run: cmake --build --preset windows-psycross-app-release
+
+      - name: Upload diagnostic executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: syphon-filter-combined-c4-force-presentation
+          path: build/windows-psycross/Release/syphon_filter.exe
+          if-no-files-found: error
