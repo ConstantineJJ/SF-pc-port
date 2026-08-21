@@ -1,6 +1,9 @@
 returncode=1
 
-  File "D:\a\SF-pc-port\SF-pc-port\apply_aim_patch_debug.py", line 1
-    from pathlib import Path
-IndentationError: unexpected indent
+Traceback (most recent call last):
+  File "D:\a\SF-pc-port\SF-pc-port\apply_aim_patch_debug.py", line 34, in <module>
+    replace_once(
+  File "D:\a\SF-pc-port\SF-pc-port\apply_aim_patch_debug.py", line 7, in replace_once
+    raise RuntimeError(f"Expected block not found in {path}")
+RuntimeError: Expected block not found in src/platform/psycross_scene_runtime.inc
 
