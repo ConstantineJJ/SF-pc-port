@@ -22,7 +22,6 @@ jobs:
         run: |
           from pathlib import Path
           import subprocess
-          import textwrap
 
           workflow = Path('.github/workflows/aim-sensitivity-patch.yml').read_text(encoding='utf-8')
           marker = '      - name: Apply aim sensitivity patch\n'
@@ -31,14 +30,19 @@ jobs:
           run_start = workflow.index(run_marker, start) + len(run_marker)
           next_step = workflow.index('\n      - name:', run_start)
           block = workflow[run_start:next_step]
-          script = textwrap.dedent(block)
+
+          lines = block.splitlines()
+          first = next(line for line in lines if line.strip())
+          indent = len(first) - len(first.lstrip(' '))
+          script = '\n'.join(
+              line[indent:] if line.startswith(' ' * indent) else line
+              for line in lines
+          ) + '\n'
+
           Path('apply_aim_patch_debug.py').write_text(script, encoding='utf-8')
           result = subprocess.run(['python', 'apply_aim_patch_debug.py'], text=True,
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-          report = (
-              f'returncode={result.returncode}\n\n'
-              f'{result.stdout}\n'
-          )
+          report = f'returncode={result.returncode}\n\n{result.stdout}\n'
           Path('aim_patch_diagnostics.txt').write_text(report, encoding='utf-8')
           print(report)
 
@@ -50,5 +54,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add aim_patch_diagnostics.txt
-          git commit -m "ci: capture aim patch diagnostics"
+          git commit -m "ci: update aim patch diagnostics"
           git push origin HEAD:feature/aim-mouse-sensitivity
