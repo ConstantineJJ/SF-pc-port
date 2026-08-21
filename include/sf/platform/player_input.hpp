@@ -224,8 +224,15 @@ enum class KeyboardMouseAction : std::uint8_t {
 inline constexpr auto keyboard_mouse_action_count =
     static_cast<std::size_t>(KeyboardMouseAction::count);
 
+inline constexpr double minimum_aim_mouse_sensitivity = 0.10;
+inline constexpr double maximum_aim_mouse_sensitivity = 2.00;
+inline constexpr double default_aim_mouse_sensitivity = 1.00;
+
 struct KeyboardMouseBindings {
   std::array<KeyboardMouseInput, keyboard_mouse_action_count> values{};
+  // Scales raw relative mouse counts during RMB/manual first-person aim.
+  // 1.0 preserves the existing product-tuned response.
+  double aim_mouse_sensitivity{default_aim_mouse_sensitivity};
 
   [[nodiscard]] KeyboardMouseInput
   operator[](KeyboardMouseAction action) const noexcept {

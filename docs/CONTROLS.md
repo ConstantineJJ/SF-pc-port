@@ -31,9 +31,13 @@ physical keyboard scancodes or mouse inputs.
 | Quick weapon 1..10 | 1..9, 0 | Equip the corresponding available quick slot |
 | Performance counter | F6 | Show or hide presentation FPS and frame time |
 
-Mouse movement controls the sight only while Aim is held. Crouch plus movement
-is the stealth locomotion path; Roll plus Strafe selects a side roll. These are
-composed states, not separate bindable actions.
+Mouse movement controls the sight only while Aim is held. The optional
+`AimMouseSensitivity` value in the `[KeyboardMouse]` section of
+`launcher.ini` scales RMB/manual first-person mouse aim from 10 to 200 percent.
+`100` preserves the default response; for example, `25` uses one quarter of the
+default sensitivity. Crouch plus movement is the stealth locomotion path; Roll
+plus Strafe selects a side roll. These are composed states, not separate
+bindable actions.
 
 ## Controller
 

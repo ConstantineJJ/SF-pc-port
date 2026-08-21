@@ -19,6 +19,15 @@ namespace {
 
 constexpr int minimum_resolution_width = 320;
 constexpr int minimum_resolution_height = 240;
+constexpr int minimum_aim_mouse_sensitivity_percent = 10;
+constexpr int maximum_aim_mouse_sensitivity_percent = 200;
+
+int encodeAimMouseSensitivity(double value) noexcept {
+  const auto clamped = std::clamp(
+      value, minimum_aim_mouse_sensitivity,
+      maximum_aim_mouse_sensitivity);
+  return static_cast<int>(clamped * 100.0 + 0.5);
+}
 
 std::wstring widenAscii(std::string_view text) {
   return {text.begin(), text.end()};
@@ -163,6 +172,9 @@ bool settingsSnapshotMatches(const std::filesystem::path &path,
     check(profileIntegerEquals(path, L"KeyboardMouse", key.c_str(),
                                static_cast<int>(input[action])));
   }
+  check(profileIntegerEquals(
+      path, L"KeyboardMouse", L"AimMouseSensitivity",
+      encodeAimMouseSensitivity(input.aim_mouse_sensitivity)));
   for (const auto &metadata : game::controllerActionCatalog()) {
     const auto key = widenAscii(metadata.config_key);
     check(profileIntegerEquals(
@@ -276,6 +288,16 @@ void loadSettingsFile(GraphicsSettings &graphics, KeyboardMouseBindings &input,
       input[action] = loaded;
     }
   }
+  const auto aim_mouse_sensitivity_percent = readProfileInteger(
+      path, L"KeyboardMouse", L"AimMouseSensitivity",
+      encodeAimMouseSensitivity(input.aim_mouse_sensitivity));
+  if (aim_mouse_sensitivity_percent >=
+          minimum_aim_mouse_sensitivity_percent &&
+      aim_mouse_sensitivity_percent <=
+          maximum_aim_mouse_sensitivity_percent) {
+    input.aim_mouse_sensitivity =
+        static_cast<double>(aim_mouse_sensitivity_percent) / 100.0;
+  }
 
   auto loaded_controller = graphics.controller_bindings;
   for (const auto &metadata : game::controllerActionCatalog()) {
@@ -356,6 +378,9 @@ bool saveSettingsFile(const GraphicsSettings &graphics,
         path, L"KeyboardMouse", key.c_str(),
         static_cast<int>(input[action])));
   }
+  static_cast<void>(writeProfileInteger(
+      path, L"KeyboardMouse", L"AimMouseSensitivity",
+      encodeAimMouseSensitivity(input.aim_mouse_sensitivity)));
   static_cast<void>(
       writeControllerBindingsFile(path, graphics.controller_bindings));
   static_cast<void>(saveGameImagePath(path, cue_path));

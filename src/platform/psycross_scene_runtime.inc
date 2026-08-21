@@ -258,6 +258,10 @@ SceneViewerResult PsyCrossSceneViewer::run(
   auto previous_weapon = gameplay.hud().inventory().current();
   auto previous_projectile_count = gameplay.projectiles().size();
   auto previous_dynamic_fire = false;
+  const auto aim_mouse_sensitivity = std::clamp(
+      input_.aim_mouse_sensitivity,
+      sf::platform::minimum_aim_mouse_sensitivity,
+      sf::platform::maximum_aim_mouse_sensitivity);
   sf::platform::PlayerInputMapper player_input{
       sf::platform::PlayerInputConfiguration{
           // Keep the exact 20 Hz retail simulation while native mouse aim
@@ -266,9 +270,11 @@ SceneViewerResult PsyCrossSceneViewer::run(
           // refresh-dependent acceleration.
           .look_deadzone = sf::platform::controller_camera_deadzone,
           .mouse_yaw_sensitivity =
-              sf::platform::first_person_mouse_yaw_sensitivity,
+              sf::platform::first_person_mouse_yaw_sensitivity *
+              aim_mouse_sensitivity,
           .mouse_pitch_sensitivity =
-              sf::platform::first_person_mouse_pitch_sensitivity,
+              sf::platform::first_person_mouse_pitch_sensitivity *
+              aim_mouse_sensitivity,
           // Keep the post-deadzone stick normalized. firstPersonAimInput()
           // converts that proportional sample to retail heading units once;
           // pre-scaling here would clamp nearly every deflection to full rate.

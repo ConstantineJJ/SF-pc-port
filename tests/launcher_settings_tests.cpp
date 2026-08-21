@@ -66,7 +66,8 @@ int main() {
     expected.controller_bindings.stick_layout =
         sf::game::ControllerStickLayout::original_one_stick;
     expected.controller_vibration = false;
-    const auto input = sf::platform::defaultKeyboardMouseBindings();
+    auto input = sf::platform::defaultKeyboardMouseBindings();
+    input.aim_mouse_sensitivity = 0.25;
     const auto cue = root / L"ROM" / L"Syphon Filter (USA).cue";
 
     require(settings::saveSettingsFile(
