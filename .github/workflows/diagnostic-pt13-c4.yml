@@ -1,0 +1,29 @@
+name: Diagnostic PT13 C4 check
+
+on:
+  push:
+    branches:
+      - diagnostic/pt13-c4-check
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout PT13 diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure PsyCross
+        run: cmake --preset windows-psycross
+
+      - name: Build release app
+        run: cmake --build --preset windows-psycross-app-release
+
+      - name: Upload PT13 executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: syphon-filter-pt13-c4-check
+          path: build/windows-psycross/Release/syphon_filter.exe
+          if-no-files-found: error
