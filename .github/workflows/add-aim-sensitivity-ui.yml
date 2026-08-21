@@ -1,0 +1,309 @@
+name: Add launcher aim sensitivity UI
+
+on:
+  push:
+    branches:
+      - feature/aim-mouse-sensitivity
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply launcher UI patch
+        id: patch
+        continue-on-error: true
+        shell: python
+        run: |
+          from pathlib import Path
+          import traceback
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{path}: expected one match, found {count}')
+              p.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+
+          try:
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.hpp',
+                  '  static constexpr int input_device_control_id = 2006;\n'
+                  '  static constexpr int controller_protocol_control_id = 1021;\n',
+                  '  static constexpr int input_device_control_id = 2006;\n'
+                  '  static constexpr int aim_mouse_sensitivity_control_id = 2007;\n'
+                  '  static constexpr int controller_protocol_control_id = 1021;\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  HWND vibration_checkbox{};\n'
+                  '  HWND assignments_label{};\n',
+                  '  HWND vibration_checkbox{};\n'
+                  '  HWND aim_sensitivity_label{};\n'
+                  '  HWND aim_sensitivity_combo{};\n'
+                  '  HWND assignments_label{};\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  void cancelBindingCapture() {\n',
+                  '  void refreshAimSensitivityCombo() {\n'
+                  '    if (keyboard == nullptr || aim_sensitivity_combo == nullptr) {\n'
+                  '      return;\n'
+                  '    }\n'
+                  '    const auto current = std::clamp(\n'
+                  '        static_cast<int>(keyboard->aim_mouse_sensitivity * 100.0 + 0.5),\n'
+                  '        10, 200);\n'
+                  '    SendMessageW(aim_sensitivity_combo, CB_RESETCONTENT, 0, 0);\n'
+                  '    auto selected_row = 0;\n'
+                  '    auto row = 0;\n'
+                  '    for (auto percent = 10; percent <= 200; ++percent) {\n'
+                  '      if (percent % 5 != 0 && percent != current) {\n'
+                  '        continue;\n'
+                  '      }\n'
+                  '      const auto label = std::to_wstring(percent) + L"%";\n'
+                  '      const auto item = SendMessageW(\n'
+                  '          aim_sensitivity_combo, CB_ADDSTRING, 0,\n'
+                  '          reinterpret_cast<LPARAM>(label.c_str()));\n'
+                  '      if (item >= 0) {\n'
+                  '        SendMessageW(aim_sensitivity_combo, CB_SETITEMDATA,\n'
+                  '                     static_cast<WPARAM>(item),\n'
+                  '                     static_cast<LPARAM>(percent));\n'
+                  '      }\n'
+                  '      if (percent == current) {\n'
+                  '        selected_row = row;\n'
+                  '      }\n'
+                  '      ++row;\n'
+                  '    }\n'
+                  '    SendMessageW(aim_sensitivity_combo, CB_SETCURSEL,\n'
+                  '                 static_cast<WPARAM>(selected_row), 0);\n'
+                  '  }\n\n'
+                  '  void applyAimSensitivitySelection() {\n'
+                  '    if (keyboard == nullptr || aim_sensitivity_combo == nullptr) {\n'
+                  '      return;\n'
+                  '    }\n'
+                  '    const auto selection =\n'
+                  '        SendMessageW(aim_sensitivity_combo, CB_GETCURSEL, 0, 0);\n'
+                  '    if (selection < 0) {\n'
+                  '      return;\n'
+                  '    }\n'
+                  '    const auto percent = SendMessageW(\n'
+                  '        aim_sensitivity_combo, CB_GETITEMDATA,\n'
+                  '        static_cast<WPARAM>(selection), 0);\n'
+                  '    if (percent < 10 || percent > 200) {\n'
+                  '      return;\n'
+                  '    }\n'
+                  '    keyboard->aim_mouse_sensitivity =\n'
+                  '        static_cast<double>(percent) / 100.0;\n'
+                  '    setStatus(localizedText().aim_sensitivity_updated);\n'
+                  '  }\n\n'
+                  '  void cancelBindingCapture() {\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '    refreshList();\n'
+                  '    if (controller_mode) {\n',
+                  '    EnableWindow(aim_sensitivity_combo, controller_mode ? FALSE : TRUE);\n'
+                  '    refreshList();\n'
+                  '    if (controller_mode) {\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '    SetWindowTextW(protocol_label, text.controller_backend.data());\n'
+                  '    SetWindowTextW(vibration_checkbox, text.vibration.data());\n'
+                  '    SetWindowTextW(assignments_label, text.assignments.data());\n',
+                  '    SetWindowTextW(protocol_label, text.controller_backend.data());\n'
+                  '    SetWindowTextW(vibration_checkbox, text.vibration.data());\n'
+                  '    SetWindowTextW(aim_sensitivity_label,\n'
+                  '                   text.aim_mouse_sensitivity.data());\n'
+                  '    refreshAimSensitivityCombo();\n'
+                  '    SetWindowTextW(assignments_label, text.assignments.data());\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  impl_->vibration_checkbox =\n'
+                  '      add(createControl(parent, L"BUTTON", L"", WS_TABSTOP | BS_AUTOCHECKBOX,\n'
+                  '                        controller_vibration_control_id, style.ui_font));\n'
+                  '  impl_->assignments_label =\n',
+                  '  impl_->vibration_checkbox =\n'
+                  '      add(createControl(parent, L"BUTTON", L"", WS_TABSTOP | BS_AUTOCHECKBOX,\n'
+                  '                        controller_vibration_control_id, style.ui_font));\n'
+                  '  impl_->aim_sensitivity_label =\n'
+                  '      add(createControl(parent, L"STATIC", L"", 0, 0, style.ui_font));\n'
+                  '  impl_->aim_sensitivity_combo =\n'
+                  '      add(createControl(parent, L"COMBOBOX", L"",\n'
+                  '                        WS_TABSTOP | CBS_DROPDOWNLIST,\n'
+                  '                        aim_mouse_sensitivity_control_id, style.ui_font));\n'
+                  '  impl_->assignments_label =\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  if (impl_->controls.size() != 14U) {\n',
+                  '  if (impl_->controls.size() != 16U) {\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  MoveWindow(impl_->defaults_button, action_left, body_top + 104, action_width,\n'
+                  '             38, TRUE);\n'
+                  '  MoveWindow(impl_->status, action_left, body_top + 158, action_width, 74,\n'
+                  '             TRUE);\n'
+                  '  MoveWindow(impl_->hint, action_left, body_top + 244, action_width,\n'
+                  '             std::max(42, body_height - 244), TRUE);\n',
+                  '  MoveWindow(impl_->defaults_button, action_left, body_top + 104, action_width,\n'
+                  '             38, TRUE);\n'
+                  '  MoveWindow(impl_->aim_sensitivity_label, action_left, body_top + 154,\n'
+                  '             action_width, 22, TRUE);\n'
+                  '  MoveWindow(impl_->aim_sensitivity_combo, action_left, body_top + 178,\n'
+                  '             action_width, 180, TRUE);\n'
+                  '  MoveWindow(impl_->status, action_left, body_top + 218, action_width, 66,\n'
+                  '             TRUE);\n'
+                  '  MoveWindow(impl_->hint, action_left, body_top + 296, action_width,\n'
+                  '             std::max(42, body_height - 296), TRUE);\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '  if (id == controller_protocol_control_id && notification == CBN_SELCHANGE) {\n'
+                  '    impl_->applyProtocolSelection();\n'
+                  '    return true;\n'
+                  '  }\n',
+                  '  if (id == controller_protocol_control_id && notification == CBN_SELCHANGE) {\n'
+                  '    impl_->applyProtocolSelection();\n'
+                  '    return true;\n'
+                  '  }\n'
+                  '  if (id == aim_mouse_sensitivity_control_id &&\n'
+                  '      notification == CBN_SELCHANGE) {\n'
+                  '    impl_->applyAimSensitivitySelection();\n'
+                  '    return true;\n'
+                  '  }\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/controls_page.cpp',
+                  '    } else {\n'
+                  '      *impl_->keyboard = defaultKeyboardMouseBindings();\n'
+                  '    }\n'
+                  '    impl_->capture.reset();\n',
+                  '    } else {\n'
+                  '      *impl_->keyboard = defaultKeyboardMouseBindings();\n'
+                  '      impl_->refreshAimSensitivityCombo();\n'
+                  '    }\n'
+                  '    impl_->capture.reset();\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/text.hpp',
+                  '  std::wstring_view vibration;\n'
+                  '  std::wstring_view assignments;\n',
+                  '  std::wstring_view vibration;\n'
+                  '  std::wstring_view aim_mouse_sensitivity;\n'
+                  '  std::wstring_view aim_sensitivity_updated;\n'
+                  '  std::wstring_view assignments;\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/text.cpp',
+                  '            .vibration = L"Controller vibration",\n'
+                  '            .assignments = L"CONTROL ASSIGNMENTS",\n',
+                  '            .vibration = L"Controller vibration",\n'
+                  '            .aim_mouse_sensitivity = L"Aim mouse sensitivity",\n'
+                  '            .aim_sensitivity_updated = L"Aim sensitivity updated.",\n'
+                  '            .assignments = L"CONTROL ASSIGNMENTS",\n')
+
+              replace_once(
+                  'apps/syphon_filter/launcher/text.cpp',
+                  '            .vibration = L"Вибрация",\n'
+                  '            .assignments = L"НАЗНАЧЕНИЯ",\n',
+                  '            .vibration = L"Вибрация",\n'
+                  '            .aim_mouse_sensitivity =\n'
+                  '                L"Чувствительность мыши при прицеливании",\n'
+                  '            .aim_sensitivity_updated =\n'
+                  '                L"Чувствительность прицеливания изменена.",\n'
+                  '            .assignments = L"НАЗНАЧЕНИЯ",\n')
+
+              replace_once(
+                  'docs/CONTROLS.md',
+                  'Mouse movement controls the sight only while Aim is held. The optional\n'
+                  '`AimMouseSensitivity` value in the `[KeyboardMouse]` section of\n'
+                  '`launcher.ini` scales RMB/manual first-person mouse aim from 10 to 200 percent.\n'
+                  '`100` preserves the default response; for example, `25` uses one quarter of the\n'
+                  'default sensitivity. Crouch plus movement is the stealth locomotion path; Roll\n',
+                  'Mouse movement controls the sight only while Aim is held. **Aim mouse\n'
+                  'sensitivity / Чувствительность мыши при прицеливании** is available directly\n'
+                  'on the Controls tab and scales manual first-person mouse aim from 10 to 200\n'
+                  'percent. `100` preserves the default response; for example, `25` uses one\n'
+                  'quarter of the default sensitivity. The value is stored as\n'
+                  '`AimMouseSensitivity` in the `[KeyboardMouse]` section of `launcher.ini`.\n'
+                  'Crouch plus movement is the stealth locomotion path; Roll\n')
+
+              Path('aim_ui_patch_failure.txt').unlink(missing_ok=True)
+          except Exception:
+              Path('aim_ui_patch_failure.txt').write_text(traceback.format_exc(), encoding='utf-8')
+              raise
+
+      - name: Check patch formatting
+        if: steps.patch.outcome == 'success'
+        shell: pwsh
+        run: git diff --check
+
+      - name: Configure, build and test
+        id: build
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
+          $log = 'aim_ui_build.log'
+          function Run-Step([string]$Command) {
+            "`n>>> $Command" | Tee-Object -FilePath $log -Append
+            cmd /c $Command 2>&1 | Tee-Object -FilePath $log -Append
+            if ($LASTEXITCODE -ne 0) { throw "Command failed ($LASTEXITCODE): $Command" }
+          }
+          try {
+            Run-Step 'cmake --preset windows-msvc'
+            Run-Step 'cmake --build --preset windows-release'
+            Run-Step 'ctest --preset windows-release --output-on-failure'
+            Run-Step 'cmake --preset windows-psycross'
+            Run-Step 'cmake --build --preset windows-psycross-app-release'
+          } catch {
+            $_ | Out-String | Tee-Object -FilePath $log -Append
+            throw
+          }
+
+      - name: Upload test executable
+        if: steps.patch.outcome == 'success' && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: syphon-filter-aim-sensitivity-ui
+          path: build/windows-psycross/Release/syphon_filter.exe
+          if-no-files-found: error
+
+      - name: Commit validated launcher UI
+        if: steps.patch.outcome == 'success' && steps.build.outcome == 'success'
+        shell: pwsh
+        run: |
+          Remove-Item .github/workflows/add-aim-sensitivity-ui.yml
+          Remove-Item aim_ui_build.log -ErrorAction SilentlyContinue
+          Remove-Item aim_ui_patch_failure.txt -ErrorAction SilentlyContinue
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "launcher: expose RMB aim mouse sensitivity"
+          git push origin HEAD:feature/aim-mouse-sensitivity
+
+      - name: Commit failure diagnostics
+        if: always() && (steps.patch.outcome == 'failure' || steps.build.outcome == 'failure')
+        shell: pwsh
+        run: |
+          git restore .
+          git clean -fd -e aim_ui_patch_failure.txt -e aim_ui_build.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add aim_ui_patch_failure.txt aim_ui_build.log 2>$null
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "ci: capture launcher aim sensitivity UI failure"
+            git push origin HEAD:feature/aim-mouse-sensitivity
+          }
